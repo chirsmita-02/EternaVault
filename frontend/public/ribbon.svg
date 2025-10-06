@@ -1,0 +1,29 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- Gradient stroke using requested palette: Cyan, Magenta, Deep Purple -->
+    <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00FFFF"/>
+      <stop offset="50%" stop-color="#C71585"/>
+      <stop offset="100%" stop-color="#2A0A4A"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#0b0b0e"/>
+
+  <!-- Thin multi-line ribbon set for depth -->
+  <g opacity="0.92" filter="url(#glow)">
+    <path d="M-120 270 C 180 150, 420 240, 760 260 C 1080 280, 1320 240, 1680 220 C 1980 206, 2100 260, 2080 300" stroke="url(#lineGrad)" stroke-width="3" fill="none"/>
+    <path d="M-140 340 C 160 220, 440 300, 780 320 C 1120 340, 1360 300, 1700 280 C 2000 266, 2120 320, 2100 360" stroke="#00FFFF" stroke-opacity="0.6" stroke-width="2" fill="none"/>
+    <path d="M-100 410 C 220 290, 420 360, 760 380 C 1100 400, 1340 360, 1680 340 C 1980 326, 2120 380, 2100 420" stroke="#C71585" stroke-opacity="0.55" stroke-width="2" fill="none"/>
+  </g>
+</svg>
+

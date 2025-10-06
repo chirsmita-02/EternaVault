@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="darkFade" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0b0b0e"/>
+      <stop offset="100%" stop-color="#0b0b0e"/>
+    </linearGradient>
+    <!-- Color gradients for strokes -->
+    <linearGradient id="gPinkPurple" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C71585"/>
+      <stop offset="100%" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="gCyanBlue" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00FFFF"/>
+      <stop offset="100%" stop-color="#1e90ff"/>
+    </linearGradient>
+    <linearGradient id="gGreenCyan" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#22C55E"/>
+      <stop offset="100%" stop-color="#00FFFF"/>
+    </linearGradient>
+    <linearGradient id="gPurpleBlue" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#1e90ff"/>
+    </linearGradient>
+    <path id="wave" d="M-260 520C60 420 320 480 660 520s560 0 900-60 600 40 600 160" />
+  </defs>
+  <rect width="100%" height="100%" fill="url(#darkFade)"/>
+
+  <!-- Ten asymmetric overlapping waves with complementary colors -->
+  <g fill="none" stroke-width="1.6" stroke-linecap="round" opacity="0.92">
+    <use href="#wave" stroke="url(#gPinkPurple)" transform="translate(0,0) rotate(-6 960 540)" />
+    <use href="#wave" stroke="url(#gCyanBlue)" transform="translate(0,12) rotate(4 960 540)" opacity="0.85" />
+    <use href="#wave" stroke="url(#gGreenCyan)" transform="translate(0,24) rotate(-2 960 540)" opacity="0.80" />
+    <use href="#wave" stroke="url(#gPurpleBlue)" transform="translate(0,36) rotate(8 960 540)" opacity="0.88" />
+    <use href="#wave" stroke="#C71585" transform="translate(0,48) rotate(-10 960 540)" opacity="0.75" />
+    <use href="#wave" stroke="#22C55E" transform="translate(0,60) rotate(6 960 540)" opacity="0.72" />
+    <use href="#wave" stroke="#00FFFF" transform="translate(0,72) rotate(-4 960 540)" opacity="0.70" />
+    <use href="#wave" stroke="#8B5CF6" transform="translate(0,84) rotate(10 960 540)" opacity="0.78" />
+    <use href="#wave" stroke="url(#gPinkPurple)" transform="translate(0,96) rotate(-8 960 540)" opacity="0.74" />
+    <use href="#wave" stroke="url(#gPurpleBlue)" transform="translate(0,108) rotate(12 960 540)" opacity="0.72" />
+  </g>
+</svg>
+
