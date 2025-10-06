@@ -1,11 +1,59 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import api from '../api';
 
 export default function Login() {
   const [role, setRole] = useState('registrar');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await api.post('/auth/login', {
+        email,
+        password
+      });
+      
+      const { token } = response.data;
+      
+      // Store token in localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('userRole', role);
+      
+      // Redirect based on role
+      switch (role) {
+        case 'registrar':
+          navigate('/registrar');
+          break;
+        case 'insurer':
+          navigate('/insurer');
+          break;
+        case 'claimant':
+          navigate('/claimant');
+          break;
+        case 'admin':
+          navigate('/admin');
+          break;
+        default:
+          navigate('/');
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      const errorMsg = err.response?.data?.error || 'Login failed. Please check your credentials.';
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="background-container">
@@ -22,7 +70,7 @@ export default function Login() {
         <h2 className="heading" style={{ textAlign: 'center', marginBottom: 6 }}>Login to Your Account</h2>
         <p className="muted" style={{ textAlign: 'center', marginTop: 0, marginBottom: 16 }}>Select your role and enter your credentials.</p>
 
-        <div className="form">
+        <form className="form" onSubmit={handleSubmit}>
           <div className="row">
             <label className="label">Role</label>
             <select className="input input-neo" value={role} onChange={e => setRole(e.target.value)}>
@@ -33,12 +81,26 @@ export default function Login() {
             </select>
           </div>
           <div className="row">
-            <label className="label">Username</label>
-            <input className="input input-neo" placeholder="Enter your username" value={username} onChange={e => setUsername(e.target.value)} />
+            <label className="label">Email</label>
+            <input 
+              className="input input-neo" 
+              placeholder="Enter your email" 
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+              type="email"
+              required
+            />
           </div>
           <div className="row">
             <label className="label">Password</label>
-            <input className="input input-neo" type="password" placeholder="Enter your password" value={password} onChange={e => setPassword(e.target.value)} />
+            <input 
+              className="input input-neo" 
+              type="password" 
+              placeholder="Enter your password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              required
+            />
           </div>
           <div className="row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontSize: 13 }}>
@@ -46,16 +108,26 @@ export default function Login() {
             </label>
             <a href="#" className="muted" style={{ fontSize: 13 }}>Forgot Password?</a>
           </div>
-          <motion.button whileTap={{ scale: 0.98 }} className="btn primary-blue" style={{ width: '100%' }}>Login</motion.button>
+          {error && (
+            <div className="error-message" style={{ color: 'red', fontSize: 14, marginBottom: 10, textAlign: 'center' }}>
+              {error}
+            </div>
+          )}
+          <motion.button 
+            whileTap={{ scale: 0.98 }} 
+            className="btn primary-blue" 
+            style={{ width: '100%' }}
+            type="submit"
+            disabled={loading}
+          >
+            {loading ? 'Logging in...' : 'Login'}
+          </motion.button>
           <div style={{ textAlign: 'center', marginTop: 10 }}>
             <span className="muted" style={{ fontSize: 13 }}>Don’t have an account? <a href="/register">Register here</a></span>
           </div>
-        </div>
+        </form>
         </motion.div>
       </div>
     </div>
   );
 }
-
-
-

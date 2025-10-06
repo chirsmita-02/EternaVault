@@ -7,7 +7,8 @@
   "scripts": {
     "build": "hardhat compile",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
-    "deploy:mumbai": "hardhat run scripts/deploy.ts --network polygonMumbai"
+    "deploy:mumbai": "hardhat run scripts/deploy.ts --network polygonMumbai",
+    "deploy:amoy": "hardhat run scripts/deploy.ts --network polygonAmoy"
   },
   "keywords": [],
   "author": "",

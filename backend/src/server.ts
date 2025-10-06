@@ -1,8 +1,24 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get the directory name in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from the correct path
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import router from './routes/index.js';
+
+// Log environment variables for debugging
+console.log('Environment variables loaded:');
+console.log('MONGO_URI:', process.env.MONGO_URI ? 'SET' : 'NOT SET');
+console.log('RPC_URL:', process.env.RPC_URL ? 'SET' : 'NOT SET');
+console.log('REGISTRY_ADDRESS:', process.env.REGISTRY_ADDRESS ? 'SET' : 'NOT SET');
 
 const app = express();
 app.use(cors());

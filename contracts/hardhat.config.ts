@@ -17,8 +17,13 @@ const config: HardhatUserConfig = {
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
     },
     polygonMumbai: {
-      url: process.env.MUMBAI_RPC_URL || "",
+      url: process.env.MUMBAI_RPC_URL || process.env.AMOY_RPC_URL || "",
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+    },
+    polygonAmoy: {
+      url: process.env.AMOY_RPC_URL || "",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId: 80002,
     },
   },
   etherscan: {
@@ -27,5 +32,3 @@ const config: HardhatUserConfig = {
 };
 
 export default config;
-
-

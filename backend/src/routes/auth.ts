@@ -79,24 +79,57 @@ router.post('/register', async (req: Request, res: Response) => {
 		console.log('Creating user with data:', userData);
 		const user = await User.create(userData);
 		console.log('User created:', user);
-		return res.json({ id: user._id });
+		// Return user data along with success message
+		return res.status(201).json({ 
+			message: 'Registration successful', 
+			user: { 
+				id: user._id, 
+				name: user.name, 
+				email: user.email, 
+				role: user.role 
+			} 
+		});
 	} catch (e: any) {
 		console.error('Registration error:', e);
-		return res.status(500).json({ error: e.message });
+		return res.status(500).json({ error: e.message || 'Registration failed' });
 	}
 });
 
 router.post('/login', async (req: Request, res: Response) => {
 	try {
 		const { email, password } = req.body as any;
+		console.log('Login attempt for email:', email);
+		
 		const user = await User.findOne({ email });
-		if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+		if (!user) {
+			console.log('User not found for email:', email);
+			return res.status(401).json({ error: 'Invalid credentials' });
+		}
+		
+		console.log('User found:', { email: user.email, role: user.role });
 		const ok = await bcrypt.compare(password, user.passwordHash);
-		if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+		console.log('Password comparison result:', ok);
+		
+		if (!ok) {
+			console.log('Invalid password for user:', email);
+			return res.status(401).json({ error: 'Invalid credentials' });
+		}
+		
 		const token = jwt.sign({ sub: String(user._id), role: user.role }, process.env.JWT_SECRET || 'dev', { expiresIn: '1d' });
-		return res.json({ token });
+		console.log('Login successful for user:', email);
+		
+		return res.json({ 
+			token,
+			user: {
+				id: user._id,
+				name: user.name,
+				email: user.email,
+				role: user.role
+			}
+		});
 	} catch (e: any) {
-		return res.status(500).json({ error: e.message });
+		console.error('Login error:', e);
+		return res.status(500).json({ error: e.message || 'Login failed' });
 	}
 });
 

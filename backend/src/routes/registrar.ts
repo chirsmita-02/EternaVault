@@ -1,52 +1,166 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import crypto from 'crypto';
-import { create as createIpfs } from 'ipfs-http-client';
-import { ethers } from 'ethers';
+import fetch from 'node-fetch';
 import { Certificate } from '../models/Certificate.js';
 
 const router = Router();
 const upload = multer();
 
-const ipfs = createIpfs({
-	url: process.env.IPFS_ENDPOINT || 'https://ipfs.infura.io:5001/api/v0',
-	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-	// @ts-ignore - allow conditional headers union
-	headers: process.env.IPFS_PROJECT_ID && process.env.IPFS_PROJECT_SECRET ? {
-		Authorization: 'Basic ' + Buffer.from(`${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_PROJECT_SECRET}`).toString('base64')
-	} : undefined
-});
-
 function sha256Hex(buf: Buffer) {
 	return crypto.createHash('sha256').update(buf).digest('hex');
 }
 
+async function uploadToPinata(fileBuffer: Buffer, fullName: string): Promise<{ cid: string, hash: string }> {
+	// Use JWT token for authentication (primary method)
+	const jwt = process.env.PINATA_JWT;
+	
+	if (!jwt) {
+		throw new Error('Pinata JWT token not configured');
+	}
+	
+	// Create metadata with full name
+	const metadata = {
+		fullName: fullName,
+		uploadedAt: new Date().toISOString(),
+	};
+	
+	// Combine file and metadata
+	const form = new (await import('form-data')).default();
+	form.append('file', fileBuffer, { filename: `${fullName.replace(/\s+/g, '_')}_certificate.pdf` });
+	
+	const pinataMetadata = JSON.stringify({ 
+		name: `${fullName.replace(/\s+/g, '_')}_certificate.pdf`,
+		keyvalues: {
+			fullName: fullName,
+			uploadedAt: new Date().toISOString()
+		}
+	});
+	form.append('pinataMetadata', pinataMetadata);
+	
+	const options = JSON.stringify({ cidVersion: 1 });
+	form.append('pinataOptions', options);
+	
+	const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+		method: 'POST',
+		headers: { 
+			'Authorization': `Bearer ${jwt}`
+		},
+		body: form as any,
+	});
+	
+	if (!res.ok) {
+		const errorText = await res.text();
+		console.error('Pinata API error:', res.status, errorText);
+		throw new Error(`Pinata upload failed: ${res.status} - ${errorText}`);
+	}
+	
+	const data = await res.json() as any;
+	const cid = data.IpfsHash || data.cid || data.hash;
+	
+	// Generate hash of the file for blockchain storage
+	const hash = sha256Hex(fileBuffer);
+	
+	return { cid, hash };
+}
+
 router.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
 	try {
-		const { certificateId } = req.body as any;
+		const { fullName, wallet } = req.body as any;
 		const file = req.file;
-		const registrarWallet = (req.body as any).wallet || '';
-		if (!file) return res.status(400).json({ error: 'file required' });
-
-		const hash = sha256Hex(file.buffer);
-		const ipfsRes = await ipfs.add(file.buffer as any);
-		const ipfsCid = (ipfsRes as any).cid.toString();
-
-		if (process.env.RPC_URL && process.env.REGISTRY_ADDRESS && process.env.DEPLOYER_PRIVATE_KEY) {
-			const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-			const wallet = new ethers.Wallet(process.env.DEPLOYER_PRIVATE_KEY, provider);
-			const abi = [
-				"function addCertificate(bytes32 certHash, string ipfsCid) public",
-			];
-			const contract = new ethers.Contract(process.env.REGISTRY_ADDRESS, abi, wallet) as any;
-			const tx = await contract.addCertificate('0x' + hash, ipfsCid);
-			await tx.wait();
+		
+		// Validate required fields
+		if (!fullName || !wallet || !file) {
+			return res.status(400).json({ error: 'fullName, wallet, and certificate file are required' });
 		}
 
-		const doc = await Certificate.create({ certificateId, hash, ipfsCid, registrarWallet, status: 'verified' });
-		return res.json({ id: doc._id, hash, ipfsCid });
+		// Upload certificate to IPFS
+		const { cid, hash } = await uploadToPinata(file.buffer, fullName);
+		
+		// Store certificate metadata in MongoDB for tracking
+		const doc = await Certificate.create({
+			certificateId: `CERT-${Date.now()}`, // Generate a unique certificate ID
+			fullName,
+			hash,
+			ipfsCid: cid,
+			registrarWallet: wallet,
+			status: 'uploaded_to_ipfs'
+		});
+		
+		// Return data needed for frontend to handle blockchain registration
+		return res.json({ 
+			id: doc._id, 
+			cid,
+			hash,
+			fullName,
+			wallet,
+			timestamp: Date.now(),
+			message: 'Certificate uploaded to IPFS successfully. Ready for blockchain registration.',
+			nextStep: 'Connect your Metamask wallet to register this certificate on the blockchain'
+		});
 	} catch (e: any) {
-		return res.status(500).json({ error: e.message });
+		console.error('Upload error:', e);
+		return res.status(500).json({ error: e.message || 'Certificate upload failed' });
+	}
+});
+
+// New endpoint for blockchain registration (to be called by frontend after Metamask connection)
+router.post('/register-on-chain', async (req: Request, res: Response) => {
+	try {
+		const { cid, hash, fullName, wallet } = req.body as any;
+		
+		// Validate required fields
+		if (!cid || !hash || !fullName || !wallet) {
+			return res.status(400).json({ error: 'cid, hash, fullName, and wallet are required' });
+		}
+		
+		// Update the certificate status to indicate it's ready for blockchain registration
+		const doc = await Certificate.findOneAndUpdate(
+			{ ipfsCid: cid },
+			{ 
+				status: 'ready_for_blockchain',
+				registrarWallet: wallet
+			},
+			{ new: true }
+		);
+		
+		if (!doc) {
+			// If not found by CID, create a new record
+			const newDoc = await Certificate.create({
+				certificateId: `CERT-${Date.now()}`,
+				fullName,
+				hash,
+				ipfsCid: cid,
+				registrarWallet: wallet,
+				status: 'ready_for_blockchain'
+			});
+			// Return the newly created document data
+			return res.json({
+				cid,
+				hash,
+				fullName,
+				wallet,
+				registryAddress: process.env.REGISTRY_ADDRESS,
+				rpcUrl: process.env.RPC_URL,
+				timestamp: Math.floor(Date.now() / 1000),
+				message: 'Certificate ready for blockchain registration. Please connect your Metamask wallet to complete the process.'
+			});
+		}
+		
+		// Return data needed for frontend blockchain interaction
+		return res.json({
+			cid,
+			hash,
+			fullName,
+			wallet,
+			registryAddress: process.env.REGISTRY_ADDRESS,
+			rpcUrl: process.env.RPC_URL,
+			timestamp: Math.floor(Date.now() / 1000),
+			message: 'Certificate ready for blockchain registration. Please connect your Metamask wallet to complete the process.'
+		});
+	} catch (e: any) {
+		console.error('Blockchain registration preparation error:', e);
+		return res.status(500).json({ error: e.message || 'Blockchain registration preparation failed' });
 	}
 });
 
