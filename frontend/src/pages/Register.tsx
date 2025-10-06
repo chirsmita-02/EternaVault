@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import api from '../api';
 
 type RoleKey = 'registrar' | 'insurer' | 'claimant' | 'admin';
 
@@ -12,6 +13,7 @@ export default function Register() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [agree, setAgree] = useState(false);
   const [submittedMsg, setSubmittedMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const config = useMemo(() => getRoleConfig(role), [role]);
 
@@ -34,11 +36,55 @@ export default function Register() {
     setValues(prev => ({ ...prev, [name]: v }));
   }
 
-  function onSubmit(e: any) {
+  async function onSubmit(e: any) {
     e.preventDefault();
-    if (!allValid) return;
-    setSubmittedMsg('Registration successful — you can now log in.');
-    setTimeout(() => setSubmittedMsg(null), 3000);
+    if (!allValid || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Prepare the data to send based on the role
+      const registrationData: any = {
+        email: values.email,
+        password: values.password,
+        role: role
+      };
+      
+      // Add role-specific fields
+      if (role === 'registrar') {
+        registrationData.fullName = values.fullName;
+        registrationData.department = values.department;
+        registrationData.username = values.username;
+        registrationData.phone = values.phone;
+        registrationData.address = values.address;
+      } else if (role === 'insurer') {
+        registrationData.company = values.company;
+        registrationData.orgAddress = values.orgAddress;
+        registrationData.phone = values.phone;
+        registrationData.username = values.username;
+      } else if (role === 'claimant') {
+        registrationData.fullName = values.fullName;
+        registrationData.phone = values.phone;
+        registrationData.address = values.address;
+      } else if (role === 'admin') {
+        registrationData.name = values.name;
+        registrationData.username = values.username;
+      }
+      
+      console.log('Sending registration data:', registrationData);
+      
+      const response = await api.post('/auth/register', registrationData);
+      console.log('Registration response:', response.data);
+      
+      setSubmittedMsg('Registration successful — you can now log in.');
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      const errorMsg = error.response?.data?.error || 'Registration failed. Please try again.';
+      setSubmittedMsg(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+      setTimeout(() => setSubmittedMsg(null), 3000);
+    }
   }
 
   return (
@@ -86,8 +132,13 @@ export default function Register() {
           </div>
 
           {/* Submit */}
-          <button className={`btn neon-submit ${allValid ? '' : 'btn-disabled'}`} style={{ width: '100%' }} disabled={!allValid}>
-            Submit
+          <button 
+            className={`btn neon-submit ${allValid ? '' : 'btn-disabled'}`} 
+            style={{ width: '100%' }} 
+            disabled={!allValid || isSubmitting}
+            type="submit"
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit'}
           </button>
         </form>
         <div style={{ textAlign: 'center', marginTop: 10 }}>
@@ -111,7 +162,7 @@ export default function Register() {
       >
         <div className="bg-ribbons local" />
         <div className="art-blob">
-          {/* Replace background-image in CSS with your chosen image */}
+          {/* Replace background-image in CSS with your chosen image */ }
         </div>
       </motion.div>
     </div>
@@ -189,6 +240,3 @@ function validateField(f: any, v: string, validators: Record<string,(v:string)=>
   if (f.optional) return true;
   return validators.text(v);
 }
-
-
-
