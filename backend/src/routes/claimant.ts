@@ -7,8 +7,14 @@ router.post('/submit', async (req: Request, res: Response) => {
 	try {
 		const { claimantId, certificateHash, policyId } = req.body as any;
 		if (!claimantId || !certificateHash || !policyId) return res.status(400).json({ error: 'Missing fields' });
-		const claim = await Claim.create({ claimantId, certificateHash, policyId });
-		return res.json({ id: claim._id, status: claim.status });
+		// Create a claim with the new schema
+		const claimData = {
+			deceasedName: "Unknown", // This would need to be passed in the request
+			fileHash: certificateHash,
+			verified: false
+		};
+		const claim = await Claim.create(claimData);
+		return res.json({ id: claim._id, verified: claim.verified });
 	} catch (e: any) {
 		return res.status(500).json({ error: e.message });
 	}
@@ -18,7 +24,7 @@ router.get('/status/:id', async (req: Request, res: Response) => {
 	try {
 		const claim = await Claim.findById(req.params.id);
 		if (!claim) return res.status(404).json({ error: 'Not found' });
-		return res.json({ status: claim.status, claim });
+		return res.json({ verified: claim.verified, claim });
 	} catch (e: any) {
 		return res.status(500).json({ error: e.message });
 	}

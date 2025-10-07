@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 
 const router = Router();
@@ -36,13 +35,11 @@ router.post('/register', async (req: Request, res: Response) => {
 			return res.status(409).json({ error: 'Email already registered' });
 		}
 		
-		const hash = await bcrypt.hash(password, 10);
-		
-		// Create user with role-specific information
+		// Store password without encryption
 		const userData: any = { 
 			name: displayName, 
 			email, 
-			passwordHash: hash, 
+			password, // Store plain password
 			role: role || 'claimant'  // default to claimant if no role specified
 		};
 		
@@ -107,7 +104,8 @@ router.post('/login', async (req: Request, res: Response) => {
 		}
 		
 		console.log('User found:', { email: user.email, role: user.role });
-		const ok = await bcrypt.compare(password, user.passwordHash);
+		// Compare plain passwords
+		const ok = user.password === password;
 		console.log('Password comparison result:', ok);
 		
 		if (!ok) {

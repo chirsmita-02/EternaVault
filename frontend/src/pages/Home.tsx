@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+//
 
 export default function Home() {
   return (
@@ -10,10 +10,10 @@ export default function Home() {
         <p className="muted">Secure, Transparent, and Instant Verification of Death Certificates using Blockchain.</p>
         <div className="spacer" />
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          {/* Flip Cards */}
-          <FlipCard title="🔍 Verify Certificate" back="Check authenticity on-chain in seconds." to="/insurer" />
-          <FlipCard title="🧾 Submit Claim" back="Send claim details and track status." to="/claimant" />
-          <FlipCard title="🧱 Learn More" back="Understand the EternaVault process." to="/about" />
+          {/* Flip Cards without navigation */}
+          <FlipCard title="🔍 Verify Certificate" back="Check authenticity on-chain in seconds." />
+          <FlipCard title="🧾 Submit Claim" back="Send claim details and track status." />
+          <FlipCard title="🧱 Learn More" back="Understand the EternaVault process." />
         </div>
       </section>
 
@@ -55,17 +55,13 @@ export default function Home() {
   );
 }
 
-function FlipCard({ title, back, to }: { title: string; back: string; to: string }) {
+function FlipCard({ title, back }: { title: string; back: string }) {
   return (
-    <Link to={to} style={{ textDecoration: 'none' }}>
-      <div className="flip">
-        <div className="flip-inner">
-          <div className="flip-front card">{title}</div>
-          <div className="flip-back card"><span className="muted">{back}</span></div>
-        </div>
+    <div className="flip">
+      <div className="flip-inner">
+        <div className="flip-front card">{title}</div>
+        <div className="flip-back card"><span className="muted">{back}</span></div>
       </div>
-    </Link>
+    </div>
   );
 }
-
-

@@ -34,6 +34,14 @@ contract DeathCertificateRegistry is Ownable {
         emit AuthorityUpdated(authority, role);
     }
 
+    // WARNING: This allows any address to self-assign registrar role.
+    // The product requirement is to treat a MetaMask connection as sufficient
+    // proof of being a registrar, so we implement self-registration here.
+    function selfRegisterRegistrar() external {
+        roles[msg.sender] = Role.GovernmentRegistrar;
+        emit AuthorityUpdated(msg.sender, Role.GovernmentRegistrar);
+    }
+
     function removeAuthority(address authority) external onlyOwner {
         roles[authority] = Role.None;
         emit AuthorityUpdated(authority, Role.None);

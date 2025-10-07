@@ -1,11 +1,16 @@
 import mongoose from 'mongoose';
 
 const claimSchema = new mongoose.Schema({
-	claimantId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-	certificateHash: { type: String, required: true },
-	policyId: { type: String, required: true },
-	status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
-	notes: { type: String }
+	deceasedName: { type: String, required: true },
+	fileHash: { type: String, required: true },
+	verified: { type: Boolean, default: false },
+	verificationDate: { type: Date },
+	onchainData: {
+		exists: { type: Boolean },
+		ipfsCid: { type: String },
+		registrar: { type: String },
+		timestamp: { type: Number }
+	}
 }, { timestamps: true });
 
 export const Claim = mongoose.model('Claim', claimSchema);
