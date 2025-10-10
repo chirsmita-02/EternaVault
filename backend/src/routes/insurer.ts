@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { Claim } from '../models/Claim.js';
 import { Certificate } from '../models/Certificate.js';
+import mongoose from 'mongoose';
 
 const router = Router();
 const upload = multer();
@@ -23,6 +24,7 @@ router.post('/verify', upload.single('file'), async (req: Request, res: Response
 		
 		if (!file) return res.status(400).json({ error: 'File is required' });
 		if (!deceasedName) return res.status(400).json({ error: 'Deceased name is required' });
+		if (!claimantName) return res.status(400).json({ error: 'Claimant name is required' });
 
 		// Compute SHA-256 hash of the uploaded file
 		const localHash = sha256Hex(file.buffer);
@@ -131,11 +133,79 @@ router.post('/verify', upload.single('file'), async (req: Request, res: Response
 			console.warn('Could not save verification status to MongoDB:', dbError);
 		}
 		
+		// Save claimant data for tracking verification status
+		try {
+			const { ClaimantData } = await import('../models/ClaimantData.js');
+			
+			// Determine verification status
+			const verificationStatus = isVerified ? 'Approved' : 'Pending';
+			
+			const claimantData = {
+				claimantName: claimantName,
+				deceasedName: deceasedName,
+				verificationStatus: verificationStatus,
+				certificateHash: localHash,
+				ipfsCid: onchainData.ipfsCid,
+				verifiedAt: isVerified ? new Date() : null,
+				verifiedBy: onchainData.registrar || null
+			};
+			
+			console.log('Saving claimant data:', claimantData);
+			
+			// Check if claimant data already exists
+			const existingData = await ClaimantData.findOne({
+				claimantName: claimantName,
+				deceasedName: deceasedName,
+				certificateHash: localHash
+			});
+			
+			if (existingData) {
+				// Update existing record
+				const updatedData = await ClaimantData.findByIdAndUpdate(
+					existingData._id,
+					claimantData,
+					{ new: true }
+				);
+				console.log('Updated claimant data:', updatedData?._id);
+			} else {
+				// Create new record
+				const newData = await ClaimantData.create(claimantData);
+				console.log('Created new claimant data:', newData._id);
+				
+				// Verify the collection was created
+				let collectionExists = false;
+				if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+				  try {
+					const collections = await mongoose.connection.db.listCollections().toArray();
+					collectionExists = collections.some((c: any) => c.name === 'claimantdatas');
+				  } catch (err) {
+					console.log('Could not list collections:', err);
+				  }
+				}
+				console.log('Collection exists:', collectionExists);
+			}
+			
+			// Verify the data was saved
+			const savedCount = await ClaimantData.countDocuments();
+			console.log(`Total claimant data records in database: ${savedCount}`);
+		} catch (claimantError) {
+			console.error('Could not save claimant data:', claimantError);
+			// Log more detailed error information
+			if (claimantError instanceof Error) {
+				console.error('Error details:', {
+					name: claimantError.name,
+					message: claimantError.message,
+					stack: claimantError.stack
+				});
+			}
+		}
+		
 		// Prepare response with detailed verification information
 		const response = {
 			verified: isVerified,
 			localHash,
 			onchainData,
+			claimantName,
 			deceasedName,
 			timestamp: Date.now(),
 			message: isVerified 

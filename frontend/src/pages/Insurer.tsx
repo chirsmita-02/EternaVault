@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
 export default function Insurer() {
@@ -8,6 +9,18 @@ export default function Insurer() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  // Check authentication on component mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userRole = localStorage.getItem('userRole');
+    
+    if (!token || userRole !== 'insurer') {
+      // Redirect to login if not authenticated or not insurer
+      navigate('/login');
+    }
+  }, [navigate]);
 
   async function verify() {
     if (!file) {

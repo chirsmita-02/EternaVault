@@ -1,167 +1,128 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+import { User } from '../models/User.js';
 import { ethers } from 'ethers';
+import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 
 const router = Router();
 
-// In-memory store for role requests (in production, use a proper database)
-const roleRequests: { 
-  [address: string]: { 
-    role: string; 
-    requestedAt: Date; 
-    status: 'pending' | 'approved' | 'rejected' 
-  } 
-} = {};
-
-// Endpoint for users to request a role
-router.post('/request-role', async (req: Request, res: Response) => {
+// List users, optionally filtered by role
+router.get('/users', async (req: Request, res: Response) => {
   try {
-    const { walletAddress, role } = req.body;
+    const { role } = req.query as { role?: string };
+    const filter: any = { status: { $ne: 'removed' } }; // Exclude removed users by default
+    if (role) filter.role = role;
     
-    // Validate inputs
-    if (!walletAddress || !role) {
-      return res.status(400).json({ error: 'walletAddress and role are required' });
-    }
+    console.log('Admin users endpoint called with filter:', filter);
     
-    // Validate Ethereum address
-    if (!ethers.isAddress(walletAddress)) {
-      return res.status(400).json({ error: 'Invalid wallet address' });
-    }
+    // Return full docs; frontend will pick required fields
+    const users = await User.find(filter);
     
-    // Validate role
-    const validRoles = ['GovernmentRegistrar', 'InsuranceCompany'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
-    }
-    
-    // Store the request
-    roleRequests[walletAddress] = {
-      role,
-      requestedAt: new Date(),
-      status: 'pending'
-    };
-    
-    return res.json({ 
-      message: 'Role request submitted successfully', 
-      walletAddress,
-      role,
-      requestId: walletAddress // Using wallet address as request ID for simplicity
-    });
-  } catch (error: any) {
-    console.error('Role request error:', error);
-    return res.status(500).json({ error: 'Failed to submit role request' });
-  }
-});
-
-// Endpoint for admin to get pending role requests
-router.get('/role-requests', (req: Request, res: Response) => {
-  try {
-    // Filter only pending requests
-    const pendingRequests = Object.entries(roleRequests)
-      .filter(([_, request]) => request.status === 'pending')
-      .map(([walletAddress, request]) => ({
-        walletAddress,
-        role: request.role,
-        requestedAt: request.requestedAt,
-        status: request.status
-      }));
-    
-    return res.json({ requests: pendingRequests });
-  } catch (error: any) {
-    console.error('Get role requests error:', error);
-    return res.status(500).json({ error: 'Failed to fetch role requests' });
-  }
-});
-
-// Endpoint for admin to approve/reject role requests
-router.post('/process-role-request', async (req: Request, res: Response) => {
-  try {
-    const { walletAddress, action } = req.body; // action: 'approve' or 'reject'
-    
-    // Validate inputs
-    if (!walletAddress || !action) {
-      return res.status(400).json({ error: 'walletAddress and action are required' });
-    }
-    
-    if (!['approve', 'reject'].includes(action)) {
-      return res.status(400).json({ error: "Action must be 'approve' or 'reject'" });
-    }
-    
-    // Check if request exists
-    if (!roleRequests[walletAddress]) {
-      return res.status(404).json({ error: 'Role request not found' });
-    }
-    
-    // Check if request is still pending
-    if (roleRequests[walletAddress].status !== 'pending') {
-      return res.status(400).json({ error: 'Role request has already been processed' });
-    }
-    
-    // Update request status
-    roleRequests[walletAddress].status = action === 'approve' ? 'approved' : 'rejected';
-    
-    // If approved, actually assign the role on the blockchain
-    if (action === 'approve') {
-      try {
-        // Get environment variables
-        const CONTRACT_ADDRESS = process.env.REGISTRY_ADDRESS;
-        const RPC_URL = process.env.RPC_URL;
-        const OWNER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY;
-        
-        if (!CONTRACT_ADDRESS || !RPC_URL || !OWNER_PRIVATE_KEY) {
-          throw new Error('Missing environment variables for blockchain connection');
-        }
-        
-        // Connect to the network
-        const provider = new ethers.JsonRpcProvider(RPC_URL);
-        const wallet = new ethers.Wallet(OWNER_PRIVATE_KEY, provider);
-        
-        // Contract ABI
-        const abi = [
-          "function addAuthority(address authority, uint8 role) external",
-          "function roles(address) view returns (uint8)"
-        ];
-        
-        // Connect to the contract
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, wallet);
-        
-        // Map role name to enum value
-        const roleEnum = roleRequests[walletAddress].role === 'GovernmentRegistrar' ? 1 : 2;
-        
-        // Type assertion to tell TypeScript that addAuthority exists
-        const addAuthorityFunction = contract.addAuthority as (address: string, role: number) => Promise<any>;
-        
-        // Assign the role
-        const tx = await addAuthorityFunction(walletAddress, roleEnum);
-        const receipt = await tx.wait();
-        
-        return res.json({ 
-          message: 'Role request approved and role assigned successfully',
-          transactionHash: tx.hash,
-          blockNumber: receipt.blockNumber,
-          walletAddress,
-          role: roleRequests[walletAddress].role
-        });
-      } catch (blockchainError: any) {
-        console.error('Blockchain error:', blockchainError);
-        // Revert status change if blockchain operation failed
-        roleRequests[walletAddress].status = 'pending';
-        return res.status(500).json({ 
-          error: 'Failed to assign role on blockchain',
-          details: blockchainError.message
-        });
-      }
-    } else {
-      // Rejected
-      return res.json({ 
-        message: 'Role request rejected',
-        walletAddress,
-        role: roleRequests[walletAddress].role
+    console.log(`Found ${users.length} users matching filter`);
+    if (users.length > 0 && users[0]) {
+      console.log('First user sample:', {
+        id: users[0]._id,
+        name: users[0].name,
+        email: users[0].email,
+        role: users[0].role,
+        status: users[0].status
       });
     }
+    
+    return res.json({ users });
   } catch (error: any) {
-    console.error('Process role request error:', error);
-    return res.status(500).json({ error: 'Failed to process role request' });
+    console.error('List users error:', error);
+    return res.status(500).json({ error: 'Failed to fetch users', details: error.message });
   }
 });
+
+// Delete user by id (set status to removed instead of actual deletion)
+router.delete('/users/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updated = await User.findByIdAndUpdate(id, { status: 'removed' }, { new: true });
+    if (!updated) return res.status(404).json({ error: 'User not found' });
+    return res.json({ message: 'User removed successfully' });
+  } catch (error: any) {
+    console.error('Delete user error:', error);
+    return res.status(500).json({ error: 'Failed to remove user' });
+  }
+});
+
+// Test route to check database connection
+router.get('/test-db', async (req: Request, res: Response) => {
+  try {
+    console.log('Test DB route called');
+    const userCount = await User.countDocuments();
+    const users = await User.find().limit(5);
+    console.log(`Total users in DB: ${userCount}`);
+    return res.json({ 
+      message: 'Database connection successful',
+      userCount,
+      sampleUsers: users.map(u => ({
+        id: u._id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        status: u.status
+      }))
+    });
+  } catch (error: any) {
+    console.error('Test DB error:', error);
+    return res.status(500).json({ error: 'Database connection failed', details: error.message });
+  }
+});
+
+// Admin-specific authentication middleware
+export const authenticateAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    console.log('Admin auth middleware called');
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    console.log('Token from header:', token ? 'present' : 'missing');
+
+    if (!token) {
+      console.log('No token provided, returning 401');
+      return res.status(401).json({ error: 'Access token required' });
+    }
+
+    // Verify token
+    const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'dev');
+    console.log('Token verified, decoded:', decoded);
+    
+    // If we have a MongoDB connection, check if user still exists and is active
+    if (mongoose.connection.readyState === 1) {
+      const { User } = await import('../models/User.js');
+      const user = await User.findById(decoded.sub);
+      
+      console.log('User lookup result:', user ? 'found' : 'not found');
+      
+      if (!user) {
+        console.log('User not found in database');
+        return res.status(401).json({ error: 'User not found' });
+      }
+      
+      if (user.status === 'removed') {
+        console.log('User account removed');
+        return res.status(401).json({ error: 'Account has been removed' });
+      }
+      
+      // Check if user is admin
+      if (decoded.role !== 'admin') {
+        console.log('User is not admin, role:', decoded.role);
+        return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+      }
+    }
+    
+    // Add user info to request
+    (req as any).user = decoded;
+    console.log('Admin auth successful');
+    next();
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return res.status(403).json({ error: 'Invalid or expired token' });
+  }
+};
 
 export default router;

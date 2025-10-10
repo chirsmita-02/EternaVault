@@ -23,14 +23,14 @@ export default function Login() {
         password
       });
       
-      const { token } = response.data;
+      const { token, user } = response.data;
       
       // Store token in localStorage
       localStorage.setItem('token', token);
-      localStorage.setItem('userRole', role);
+      localStorage.setItem('userRole', user.role);
       
       // Redirect based on role
-      switch (role) {
+      switch (user.role) {
         case 'registrar':
           navigate('/registrar');
           break;
@@ -41,7 +41,8 @@ export default function Login() {
           navigate('/claimant');
           break;
         case 'admin':
-          navigate('/admin');
+          // Updated path for admin dashboard
+          navigate('/admin-dashboard');
           break;
         default:
           navigate('/');

@@ -4,6 +4,7 @@ const claimSchema = new mongoose.Schema({
 	deceasedName: { type: String, required: true },
 	fileHash: { type: String, required: true },
 	verified: { type: Boolean, default: false },
+	status: { type: String, enum: ['Pending', 'Claimed'], default: 'Pending' },
 	verificationDate: { type: Date },
 	onchainData: {
 		exists: { type: Boolean },

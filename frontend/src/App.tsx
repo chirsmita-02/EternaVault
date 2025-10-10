@@ -6,6 +6,7 @@ import Registrar from './pages/Registrar'
 import Insurer from './pages/Insurer'
 import Claimant from './pages/Claimant'
 import Admin from './pages/Admin'
+import TestAuth from './pages/TestAuth'
 import Layout from './components/Layout'
 import About from './pages/About'
 import Login from './pages/Login'
@@ -25,7 +26,9 @@ function App() {
           <Route path="/registrar" element={<Registrar />} />
           <Route path="/insurer" element={<Insurer />} />
           <Route path="/claimant" element={<Claimant />} />
-          <Route path="/admin" element={<Admin />} />
+          {/* Updated admin route path */}
+          <Route path="/admin-dashboard" element={<Admin />} />
+          <Route path="/test-auth" element={<TestAuth />} />
         </Route>
       </Routes>
     </BrowserRouter>

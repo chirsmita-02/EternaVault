@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema({
 	role: { type: String, enum: ['admin', 'insurer', 'claimant', 'registrar'], required: true },
 	walletAddress: { type: String },
 	approved: { type: Boolean, default: false },
+	// Add status field
+	status: { type: String, enum: ['active', 'removed'], default: 'active' },
 	// Role-specific fields
 	registrarInfo: {
 		departmentName: { type: String },
