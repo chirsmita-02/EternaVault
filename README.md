@@ -19,6 +19,28 @@ Key features:
 - Alchemy RPC account for Polygon network
 - MetaMask browser extension
 
+## Resources Used
+
+This project utilizes the following services and technologies:
+
+### Backend Services
+- **MongoDB Atlas**: Cloud database for user management and certificate metadata
+- **Pinata**: IPFS service for decentralized file storage
+- **Alchemy**: RPC provider for Polygon blockchain interactions
+
+### Blockchain Networks
+- **Polygon Amoy Testnet**: Primary test network for smart contract deployment
+- **Polygon Mumbai Testnet**: Alternative test network
+- **Ethereum Sepolia Testnet**: For cross-chain compatibility testing
+
+### Development Tools
+- **Hardhat**: Ethereum development environment for smart contract compilation and deployment
+- **Node.js**: JavaScript runtime for backend services
+- **React**: Frontend framework for user interface
+- **Vite**: Build tool and development server for frontend
+- **Express**: Web framework for backend API
+- **Mongoose**: MongoDB object modeling for Node.js
+
 ## Installation and Setup
 
 ### 1. Clone the Repository

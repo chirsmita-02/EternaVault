@@ -51,6 +51,28 @@ After pushing, your GitHub repository will contain:
   - `contracts.env.example`
   - `frontend.env.example`
 
+## Resources and Services Used
+
+This project integrates with several external services and platforms:
+
+### Cloud Services
+- **MongoDB Atlas**: Cloud database service for user management and certificate metadata storage
+- **Pinata**: IPFS service for decentralized file storage of death certificates
+- **Alchemy**: Blockchain RPC provider for Polygon network interactions
+
+### Blockchain Networks
+- **Polygon Amoy Testnet**: Primary test network for smart contract deployment and testing
+- **Polygon Mumbai Testnet**: Alternative test network for compatibility testing
+- **Ethereum Sepolia Testnet**: Cross-chain testing environment
+
+### Development Tools and Frameworks
+- **Hardhat**: Ethereum development environment for smart contract compilation and deployment
+- **Node.js**: JavaScript runtime for backend services
+- **React**: Frontend framework for building the user interface
+- **Vite**: Build tool and development server for the frontend application
+- **Express**: Web framework for the backend API
+- **Mongoose**: MongoDB object modeling library for Node.js
+
 ## Setting Up Environment Variables After Cloning
 
 When someone clones your repository, they'll need to set up environment variables:

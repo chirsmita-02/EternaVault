@@ -9,6 +9,7 @@ Located in: `backend/.env`
 ### MongoDB Configuration
 - `MONGO_URI`: Connection string for MongoDB Atlas. Must include the database name.
   Example: `mongodb+srv://username:password@cluster.example.mongodb.net/database_name?retryWrites=true&w=majority`
+  **Service Used**: MongoDB Atlas - Cloud database service
 
 ### JWT Configuration
 - `JWT_SECRET`: Secret key for JWT token generation and verification.
@@ -17,6 +18,7 @@ Located in: `backend/.env`
 ### Blockchain Configuration
 - `RPC_URL`: RPC endpoint for the blockchain network (Polygon Amoy in this case).
   Example: `https://polygon-amoy.g.alchemy.com/v2/your_api_key`
+  **Service Used**: Alchemy - Blockchain RPC provider
 - `REGISTRY_ADDRESS`: Address of the deployed Registry smart contract.
   Example: `0x10Ea002324439076Ba46430384E183749a145AD2`
 - `DEPLOYER_PRIVATE_KEY`: Private key used for deploying smart contracts (not needed for running the application).
@@ -24,10 +26,13 @@ Located in: `backend/.env`
 ### IPFS Configuration (Pinata)
 - `PINATA_JWT`: JWT token for authenticating with Pinata IPFS service.
   Example: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
+  **Service Used**: Pinata - Decentralized file storage service
 - `IPFS_PROJECT_ID`: Project ID for Pinata (alternative authentication method).
   Example: `your_project_id_here`
+  **Service Used**: Pinata - Decentralized file storage service
 - `IPFS_PROJECT_SECRET`: Project secret for Pinata (alternative authentication method).
   Example: `your_project_secret_here`
+  **Service Used**: Pinata - Decentralized file storage service
 
 ### Server Configuration
 - `PORT`: Port on which the backend server will run.
@@ -44,16 +49,21 @@ Located in: `contracts/.env`
 ### Network RPC URLs
 - `SEPOLIA_RPC_URL`: RPC endpoint for Ethereum Sepolia testnet.
   Example: `https://sepolia.infura.io/v3/your_infura_project_id`
+  **Service Used**: Infura or Alchemy - Blockchain RPC providers
 - `MUMBAI_RPC_URL`: RPC endpoint for Polygon Mumbai testnet.
   Example: `https://polygon-mumbai.infura.io/v3/your_infura_project_id`
+  **Service Used**: Infura or Alchemy - Blockchain RPC providers
 - `AMOY_RPC_URL`: RPC endpoint for Polygon Amoy testnet.
   Example: `https://polygon-amoy.g.alchemy.com/v2/your_alchemy_api_key`
+  **Service Used**: Alchemy - Blockchain RPC provider
 
 ### Blockchain Explorer API Keys
 - `ETHERSCAN_API_KEY`: API key for Etherscan (for verifying contracts on Ethereum).
   Example: `your_etherscan_api_key_here`
+  **Service Used**: Etherscan - Ethereum blockchain explorer
 - `POLYGONSCAN_API_KEY`: API key for Polygonscan (for verifying contracts on Polygon).
   Example: `your_polygonscan_api_key_here`
+  **Service Used**: Polygonscan - Polygon blockchain explorer
 
 ## Frontend Environment Variables (.env)
 

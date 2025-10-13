@@ -48,6 +48,28 @@ The repository includes:
   - Environment variables documentation
   - Example environment files for all services
 
+## Resources Used
+
+This project integrates with several external services:
+
+### Cloud Services
+- **MongoDB Atlas**: Cloud database for user management and certificate metadata
+- **Pinata**: IPFS service for decentralized file storage
+- **Alchemy**: RPC provider for Polygon blockchain interactions
+
+### Blockchain Networks
+- **Polygon Amoy Testnet**: Primary test network for smart contract deployment
+- **Polygon Mumbai Testnet**: Alternative test network
+- **Ethereum Sepolia Testnet**: For cross-chain compatibility testing
+
+### Development Tools
+- **Hardhat**: Ethereum development environment for smart contract compilation and deployment
+- **Node.js**: JavaScript runtime for backend services
+- **React**: Frontend framework for user interface
+- **Vite**: Build tool and development server for frontend
+- **Express**: Web framework for backend API
+- **Mongoose**: MongoDB object modeling for Node.js
+
 ## Environment Variables Setup
 
 After cloning the repository, you'll need to set up environment variables for each service:
