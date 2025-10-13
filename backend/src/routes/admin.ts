@@ -9,6 +9,11 @@ const router = Router();
 // List users, optionally filtered by role
 router.get('/users', async (req: Request, res: Response) => {
   try {
+    console.log('Admin users endpoint called');
+    console.log('Request headers:', req.headers);
+    console.log('Authorization header:', req.headers.authorization);
+    console.log('Query parameters:', req.query);
+    
     const { role } = req.query as { role?: string };
     const filter: any = { status: { $ne: 'removed' } }; // Exclude removed users by default
     if (role) filter.role = role;
@@ -29,6 +34,7 @@ router.get('/users', async (req: Request, res: Response) => {
       });
     }
     
+    console.log('Sending response with users:', users.length);
     return res.json({ users });
   } catch (error: any) {
     console.error('List users error:', error);

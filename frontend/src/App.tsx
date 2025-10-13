@@ -6,14 +6,17 @@ import Registrar from './pages/Registrar'
 import Insurer from './pages/Insurer'
 import Claimant from './pages/Claimant'
 import Admin from './pages/Admin'
-import TestAuth from './pages/TestAuth'
 import Layout from './components/Layout'
 import About from './pages/About'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Contact from './pages/Contact'
 
+// Add debugging
+console.log('App.tsx: Loading App component');
+
 function App() {
+  console.log('App.tsx: Rendering App component');
   return (
     <BrowserRouter>
       <Routes>
@@ -28,7 +31,6 @@ function App() {
           <Route path="/claimant" element={<Claimant />} />
           {/* Updated admin route path */}
           <Route path="/admin-dashboard" element={<Admin />} />
-          <Route path="/test-auth" element={<TestAuth />} />
         </Route>
       </Routes>
     </BrowserRouter>

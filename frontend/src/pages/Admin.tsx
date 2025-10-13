@@ -103,7 +103,13 @@ export default function Admin() {
       const res = await api.get(`/admin/users`);
       console.log(`Received ${res.data?.users?.length || 0} total users from API`, res.data);
       
+      // Add additional logging to see the raw data
+      console.log('Raw API response:', res);
+      
       const allUsers = (res.data?.users || []).map(normalize) as UserRow[];
+      
+      // Log the normalized data
+      console.log('Normalized users:', allUsers);
       
       // Filter users by role
       const registrars = allUsers.filter(u => u.role === 'registrar');
@@ -117,6 +123,12 @@ export default function Admin() {
       setClaimants(claimants);
     } catch (e: any) {
       console.error('Failed to load users:', e);
+      console.error('Error details:', {
+        message: e?.message,
+        response: e?.response,
+        status: e?.response?.status,
+        data: e?.response?.data
+      });
       showToast('error', e?.response?.data?.error || 'Failed to load users');
     } finally {
       setLoading(false);

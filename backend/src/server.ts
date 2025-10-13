@@ -20,6 +20,9 @@ console.log('Environment variables loaded:');
 console.log('MONGO_URI:', process.env.MONGO_URI ? 'SET' : 'NOT SET');
 console.log('RPC_URL:', process.env.RPC_URL ? 'SET' : 'NOT SET');
 console.log('REGISTRY_ADDRESS:', process.env.REGISTRY_ADDRESS ? 'SET' : 'NOT SET');
+console.log('PINATA_JWT:', process.env.PINATA_JWT ? 'SET' : 'NOT SET');
+console.log('IPFS_PROJECT_ID:', process.env.IPFS_PROJECT_ID ? 'SET' : 'NOT SET');
+console.log('IPFS_PROJECT_SECRET:', process.env.IPFS_PROJECT_SECRET ? 'SET' : 'NOT SET');
 
 const app = express();
 app.use(cors());
