@@ -11,7 +11,8 @@ const certificateSchema = new mongoose.Schema({
 		type: String, 
 		enum: ['uploaded_to_ipfs', 'ready_for_blockchain', 'registered_on_chain', 'rejected'], 
 		default: 'uploaded_to_ipfs' 
-	}
+	},
+	transactionHash: { type: String }
 }, { timestamps: true });
 
 export const Certificate = mongoose.model('Certificate', certificateSchema);

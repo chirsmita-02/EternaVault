@@ -140,6 +140,7 @@ export default function Insurer() {
           <div className={result.verified ? "verification-success" : "verification-failure"}>
             <h4>{result.message}</h4>
             <div className="result-details">
+              <p><strong>Verification Source:</strong> {result.verificationSource === 'blockchain' ? '✅ Blockchain (On-Chain)' : 'Database'}</p>
               <p><strong>Local Hash:</strong> {result.localHash}</p>
               <p><strong>Blockchain Record:</strong> {result.onchainData.exists ? 'Found' : 'Not Found'}</p>
               {result.onchainData.exists && (

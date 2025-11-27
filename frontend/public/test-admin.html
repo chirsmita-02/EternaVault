@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Data Test</title>
+</head>
+<body>
+    <h1>Admin Data Test</h1>
+    <button id="loadData">Load Admin Data</button>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('loadData').addEventListener('click', async () => {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Loading...';
+            
+            try {
+                // Get token from localStorage
+                const token = localStorage.getItem('token');
+                console.log('Token:', token);
+                
+                if (!token) {
+                    resultDiv.innerHTML = 'No token found. Please log in first.';
+                    return;
+                }
+                
+                // Make request to admin users endpoint
+                const response = await fetch('http://localhost:4000/api/admin/users', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                console.log('Response:', data);
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">Error: ${data.error || 'Unknown error'}</p>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<p style="color: red;">Network error: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

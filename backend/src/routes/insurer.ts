@@ -15,6 +15,14 @@ function sha256Hex(buf: Buffer) {
 	return crypto.createHash('sha256').update(buf).digest('hex');
 }
 
+function normalizeHash(hash: string) {
+	return hash.toLowerCase().replace(/^0x/, '');
+}
+
+function escapeRegex(value: string) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Enhanced verification endpoint with better error handling and timeout
 router.post('/verify', upload.single('file'), async (req: Request, res: Response) => {
 	try {
@@ -30,91 +38,200 @@ router.post('/verify', upload.single('file'), async (req: Request, res: Response
 		const localHash = sha256Hex(file.buffer);
 		console.log('Computed local hash:', localHash);
 		
-		// Initialize blockchain verification result
-		let onchainData = {
-			exists: false,
-			ipfsCid: "",
-			registrar: "",
-			timestamp: 0
+		// Build candidate hashes (uploaded hash + database hints)
+		type CandidateSource = 'uploaded_file' | 'database_hash' | 'database_name' | 'database_ipfs' | 'manual_input';
+		type CandidateInfo = {
+			hash: string;
+			sources: CandidateSource[];
+			reasons: string[];
+			dbDocs: any[];
 		};
 		
-		// Fetch blockchain data using the smart contract with timeout handling
+		const candidateMap = new Map<string, CandidateInfo>();
+		const addCandidate = (rawHash: string, source: CandidateSource, reason: string, doc?: any) => {
+			const normalized = normalizeHash(rawHash);
+			if (!/^[0-9a-f]{64}$/.test(normalized)) return;
+			if (!candidateMap.has(normalized)) {
+				candidateMap.set(normalized, {
+					hash: normalized,
+					sources: [source],
+					reasons: [reason],
+					dbDocs: doc ? [doc] : []
+				});
+			} else {
+				const entry = candidateMap.get(normalized)!;
+				if (!entry.sources.includes(source)) entry.sources.push(source);
+				entry.reasons.push(reason);
+				if (doc) entry.dbDocs.push(doc);
+			}
+		};
+		
+		addCandidate(localHash, 'uploaded_file', 'Hash computed from uploaded file');
+		
+		// Query MongoDB for potential matches to speed up lookup
+		let dbCertificates: any[] = [];
+		try {
+			const queryFilters: any[] = [{ hash: normalizeHash(localHash) }];
+			if (deceasedName) {
+				queryFilters.push({ fullName: { $regex: escapeRegex(deceasedName), $options: 'i' } });
+			}
+			if (req.body.certificateId) {
+				queryFilters.push({ certificateId: req.body.certificateId });
+			}
+			if (req.body.ipfsCid) {
+				queryFilters.push({ ipfsCid: req.body.ipfsCid });
+			}
+			
+			if (queryFilters.length) {
+				dbCertificates = await Certificate.find({ $or: queryFilters })
+					.limit(25)
+					.lean();
+				
+				for (const doc of dbCertificates) {
+					const reasonParts = [];
+					if (doc.hash === localHash) reasonParts.push('hash matches uploaded hash');
+					if (doc.fullName?.toLowerCase() === deceasedName.toLowerCase()) reasonParts.push('full name match');
+					if (req.body.ipfsCid && doc.ipfsCid === req.body.ipfsCid) reasonParts.push('IPFS CID match');
+					if (req.body.certificateId && doc.certificateId === req.body.certificateId) reasonParts.push('certificateId match');
+					
+					const reason = reasonParts.length
+						? `Certificate match (${reasonParts.join(', ')})`
+						: 'Certificate match (fuzzy search)';
+					
+					addCandidate(doc.hash, 'database_hash', reason, doc);
+				}
+				console.log(`MongoDB candidate count: ${dbCertificates.length}`);
+			}
+		} catch (mongoLookupError) {
+			console.warn('MongoDB lookup failed:', mongoLookupError);
+		}
+		
+		const candidateList = Array.from(candidateMap.values());
+		console.log('Candidate hashes to verify:', candidateList.map(c => c.hash));
+		
+		// Prepare blockchain provider/contract once
+		let provider: ethers.JsonRpcProvider | null = null;
+		let contract: ethers.Contract | null = null;
 		if (process.env.RPC_URL && process.env.REGISTRY_ADDRESS) {
 			try {
-				console.log('Connecting to blockchain with RPC:', process.env.RPC_URL);
-				console.log('Using contract address:', process.env.REGISTRY_ADDRESS);
-				
-				// Create provider with timeout settings
-				const provider = new ethers.JsonRpcProvider(process.env.RPC_URL, undefined, {
+				provider = new ethers.JsonRpcProvider(process.env.RPC_URL, undefined, {
 					polling: false,
-					cacheTimeout: 5000, // 5 second cache timeout
+					cacheTimeout: 5000
 				});
 				
 				const abi = [
 					"function verifyCertificate(bytes32 certHash) view returns (bool,string,address,uint256)"
 				];
-				
-				const contract = new ethers.Contract(process.env.REGISTRY_ADDRESS!, abi, provider);
-				
-				// Set a timeout for the blockchain call
-				const blockchainCallTimeout = new Promise((resolve) => {
-					setTimeout(() => {
-						console.log('Blockchain call timed out after 10 seconds');
-						resolve(null);
-					}, 10000); // 10 second timeout
-				});
-				
-				// Ensure the hash is properly formatted as bytes32
-				const formattedHash = '0x' + localHash;
-				console.log('Calling verifyCertificate with formatted hash:', formattedHash);
-				
-				if (typeof contract.verifyCertificate === 'function') {
-					const blockchainCall = contract.verifyCertificate(formattedHash);
-					
-					// Add error handling for the blockchain call itself
-					const wrappedBlockchainCall = blockchainCall.catch((error: any) => {
-						console.error('Blockchain call failed:', error);
-						return null;
-					});
-					
-					const result = await Promise.race([wrappedBlockchainCall, blockchainCallTimeout]);
-					console.log('Blockchain result:', result);
-					
-					if (result !== null) {
-						// Parse the result from the smart contract
-						const resultArray = result as any[];
-						onchainData = {
-							exists: Array.isArray(resultArray) ? Boolean(resultArray[0]) : Boolean(result),
-							ipfsCid: Array.isArray(resultArray) ? resultArray[1] : "",
-							registrar: Array.isArray(resultArray) ? resultArray[2] : "",
-							timestamp: Array.isArray(resultArray) ? Number(resultArray[3]) : 0
-						};
-						console.log('Parsed onchain data:', onchainData);
-					} else {
-						// Timeout occurred
-						console.warn('Blockchain verification timed out');
-					}
-				} else {
-					console.error('verifyCertificate is not a function on contract');
-				}
-			} catch (blockchainError: any) {
-				console.error('Blockchain verification error:', blockchainError);
-				// Continue with verification but mark blockchain data as unavailable
-				// Return specific error if it's a timeout
-				if (blockchainError.code === 'TIMEOUT') {
-					return res.status(408).json({ 
-						error: 'Blockchain connection timeout. Please try again later.',
-						details: 'The blockchain network is currently slow or unavailable.'
-					});
-				}
+				contract = new ethers.Contract(process.env.REGISTRY_ADDRESS!, abi, provider);
+			} catch (providerError) {
+				console.error('Failed to initialise blockchain provider:', providerError);
 			}
 		} else {
 			console.warn('Blockchain verification skipped: Missing RPC_URL or REGISTRY_ADDRESS');
 		}
-
-		// Compare hashes and determine verification status
-		const isVerified = onchainData.exists;
-		console.log('Verification result - isVerified:', isVerified);
+		
+		const candidateResults: Array<{
+			hash: string;
+			formattedHash: string;
+			exists: boolean;
+			ipfsCid: string;
+			registrar: string;
+			timestamp: number;
+			blockchainError?: string;
+			sources: CandidateSource[];
+			reasons: string[];
+			dbDocs: any[];
+		}> = [];
+		
+		if (provider && contract && typeof contract.verifyCertificate === 'function') {
+			for (const candidate of candidateList) {
+				const formattedHash = '0x' + candidate.hash;
+				console.log('Checking candidate hash:', formattedHash, candidate.reasons.join('; '));
+				
+				const blockchainCall = contract.verifyCertificate(formattedHash);
+				const timeoutPromise = new Promise((_resolve, reject) =>
+					setTimeout(() => reject(new Error('Blockchain call timed out after 10 seconds')), 10000)
+				);
+				
+				try {
+					const result = await Promise.race([blockchainCall, timeoutPromise]);
+					const resultArray = result as any[];
+					candidateResults.push({
+						hash: candidate.hash,
+						formattedHash,
+						exists: Boolean(resultArray?.[0]),
+						ipfsCid: resultArray?.[1] || "",
+						registrar: resultArray?.[2] || "",
+						timestamp: Number(resultArray?.[3] || 0),
+						sources: candidate.sources,
+						reasons: candidate.reasons,
+						dbDocs: candidate.dbDocs
+					});
+				} catch (candidateError: any) {
+					console.error(`Blockchain verification failed for ${formattedHash}:`, candidateError);
+					candidateResults.push({
+						hash: candidate.hash,
+						formattedHash,
+						exists: false,
+						ipfsCid: "",
+						registrar: "",
+						timestamp: 0,
+						blockchainError: candidateError.message || candidateError.toString(),
+						sources: candidate.sources,
+						reasons: candidate.reasons,
+						dbDocs: candidate.dbDocs
+					});
+				}
+			}
+		} else {
+			for (const candidate of candidateList) {
+				candidateResults.push({
+					hash: candidate.hash,
+					formattedHash: '0x' + candidate.hash,
+					exists: false,
+					ipfsCid: "",
+					registrar: "",
+					timestamp: 0,
+					blockchainError: 'Blockchain provider not configured',
+					sources: candidate.sources,
+					reasons: candidate.reasons,
+					dbDocs: candidate.dbDocs
+				});
+			}
+		}
+		
+		// Determine final verification result
+		const localCandidateResult = candidateResults.find(result => result.hash === normalizeHash(localHash));
+		let primaryResult = localCandidateResult?.exists ? localCandidateResult : null;
+		if (!primaryResult) {
+			primaryResult = candidateResults.find(result => result.exists) || null;
+		}
+		
+		const isVerified = Boolean(primaryResult && primaryResult.exists);
+		const matchedHash = primaryResult?.hash || normalizeHash(localHash);
+		const verificationPath: 'uploaded_file' | 'database_match' | 'none' = isVerified
+			? (localCandidateResult?.exists ? 'uploaded_file' : 'database_match')
+			: 'none';
+		const onchainData = primaryResult
+			? {
+				exists: primaryResult.exists,
+				ipfsCid: primaryResult.ipfsCid,
+				registrar: primaryResult.registrar,
+				timestamp: primaryResult.timestamp
+			}
+			: {
+				exists: false,
+				ipfsCid: "",
+				registrar: "",
+				timestamp: 0
+			};
+		
+		console.log('Verification path:', verificationPath, 'Verified:', isVerified);
+		const message = isVerified
+			? (verificationPath === 'uploaded_file'
+				? "✅ Verified: Uploaded file hash matches the on-chain record."
+				: "✅ Verified using blockchain record found via database lookup. (Uploaded file differs from the registered document)")
+			: "❌ Not Verified: Certificate hash not found on blockchain. This may mean the certificate is not registered or the file differs from the registered document.";
 		
 		// Save verification status in MongoDB
 		try {
@@ -144,7 +261,7 @@ router.post('/verify', upload.single('file'), async (req: Request, res: Response
 				claimantName: claimantName,
 				deceasedName: deceasedName,
 				verificationStatus: verificationStatus,
-				certificateHash: localHash,
+				certificateHash: matchedHash,
 				ipfsCid: onchainData.ipfsCid,
 				verifiedAt: isVerified ? new Date() : null,
 				verifiedBy: onchainData.registrar || null
@@ -156,7 +273,7 @@ router.post('/verify', upload.single('file'), async (req: Request, res: Response
 			const existingData = await ClaimantData.findOne({
 				claimantName: claimantName,
 				deceasedName: deceasedName,
-				certificateHash: localHash
+				certificateHash: matchedHash
 			});
 			
 			if (existingData) {
@@ -204,20 +321,26 @@ router.post('/verify', upload.single('file'), async (req: Request, res: Response
 		const response = {
 			verified: isVerified,
 			localHash,
+			matchedHash,
 			onchainData,
+			candidateResults,
+			dbMatches: dbCertificates.length,
 			claimantName,
 			deceasedName,
 			timestamp: Date.now(),
-			message: isVerified 
-				? "✅ Verified: File hash matches blockchain record." 
-				: "❌ Not Verified: Mismatch or no record found. This may be because the certificate hasn't been registered on the blockchain yet."
+			verificationSource: 'hybrid',
+			verificationPath,
+			message
 		};
 
 		console.log('Sending response:', response);
 		return res.json(response);
 	} catch (e: any) {
 		console.error('Verification error:', e);
-		return res.status(500).json({ error: e.message || 'Verification failed' });
+		return res.status(500).json({ 
+			error: e.message || 'Verification failed',
+			verificationSource: 'blockchain' // Added for consistency
+		});
 	}
 });
 

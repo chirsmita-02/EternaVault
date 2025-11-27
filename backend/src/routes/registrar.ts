@@ -14,7 +14,7 @@ function sha256Hex(buf: Buffer) {
 	return crypto.createHash('sha256').update(buf).digest('hex');
 }
 
-async function uploadToPinata(fileBuffer: Buffer, fullName: string): Promise<{ cid: string, hash: string }> {
+async function uploadToPinata(fileBuffer: Buffer, fullName: string, maxRetries = 3): Promise<{ cid: string, hash: string }> {
 	// Use JWT token for authentication (primary method)
 	// Fallback to project ID and secret if JWT is not available
 	const jwt = process.env.PINATA_JWT;
@@ -78,41 +78,64 @@ async function uploadToPinata(fileBuffer: Buffer, fullName: string): Promise<{ c
 	const options = JSON.stringify({ cidVersion: 1 });
 	form.append('pinataOptions', options);
 	
-	// Set timeout for the request
-	const controller = new AbortController();
-	const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-	
-	try {
-		const authHeader = jwt 
-			? { 'Authorization': `Bearer ${jwt}` }
-			: { 'Authorization': 'Basic ' + Buffer.from(`${projectId}:${projectSecret}`).toString('base64') };
+	// Retry mechanism for upload
+	let lastError: any;
+	for (let attempt = 1; attempt <= maxRetries; attempt++) {
+		console.log(`Upload attempt ${attempt}/${maxRetries}`);
+		
+		// Set timeout for the request
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+		
+		try {
+			const authHeader = jwt 
+				? { 'Authorization': `Bearer ${jwt}` }
+				: { 'Authorization': 'Basic ' + Buffer.from(`${projectId}:${projectSecret}`).toString('base64') };
+				
+			const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+				method: 'POST',
+				headers: authHeader,
+				body: form as any,
+				signal: controller.signal as any
+			});
 			
-		const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
-			method: 'POST',
-			headers: authHeader,
-			body: form as any,
-			signal: controller.signal as any
-		});
-		
-		clearTimeout(timeoutId);
-		
-		if (!res.ok) {
-			const errorText = await res.text();
-			console.error('Pinata API error:', res.status, errorText);
-			throw new Error(`Pinata upload failed: ${res.status} - ${errorText}`);
+			clearTimeout(timeoutId);
+			
+			if (!res.ok) {
+				const errorText = await res.text();
+				console.error('Pinata API error:', res.status, errorText);
+				throw new Error(`Pinata upload failed: ${res.status} - ${errorText}`);
+			}
+			
+			const data = await res.json() as any;
+			const cid = data.IpfsHash || data.cid || data.hash;
+			
+			return { cid, hash };
+		} catch (error: any) {
+			clearTimeout(timeoutId);
+			lastError = error;
+			
+			if (error.name === 'AbortError') {
+				console.log(`Upload attempt ${attempt} timed out`);
+				if (attempt === maxRetries) {
+					throw new Error('Upload timeout after multiple attempts - please try again with a smaller file or better internet connection');
+				}
+			} else {
+				console.log(`Upload attempt ${attempt} failed:`, error.message);
+				if (attempt === maxRetries) {
+					throw error;
+				}
+			}
+			
+			// Wait before retrying (exponential backoff)
+			if (attempt < maxRetries) {
+				await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+			}
 		}
-		
-		const data = await res.json() as any;
-		const cid = data.IpfsHash || data.cid || data.hash;
-		
-		return { cid, hash };
-	} catch (error: any) {
-		clearTimeout(timeoutId);
-		if (error.name === 'AbortError') {
-			throw new Error('Upload timeout - please try again with a smaller file');
-		}
-		throw error;
 	}
+	
+	// If we reach here, all retries failed
+	throw lastError;
 }
 
 router.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
@@ -214,6 +237,44 @@ router.post('/register-on-chain', async (req: Request, res: Response) => {
     return res.status(500).json({ 
       error: e.message || 'Blockchain registration preparation failed',
       suggestion: 'Check your MetaMask connection and network settings'
+    });
+  }
+});
+
+// New endpoint to update certificate status after successful blockchain registration
+router.post('/update-certificate-status', async (req: Request, res: Response) => {
+  try {
+    const { cid, txHash } = req.body as any;
+    
+    // Validate required fields
+    if (!cid || !txHash) {
+      return res.status(400).json({ error: 'cid and txHash are required' });
+    }
+    
+    // Update the certificate status to indicate it's registered on chain
+    const doc = await Certificate.findOneAndUpdate(
+      { ipfsCid: cid },
+      { 
+        status: 'registered_on_chain',
+        transactionHash: txHash
+      },
+      { new: true }
+    );
+    
+    if (!doc) {
+      return res.status(404).json({ error: 'Certificate not found' });
+    }
+    
+    return res.json({
+      success: true,
+      message: 'Certificate status updated successfully',
+      certificate: doc
+    });
+  } catch (e: any) {
+    console.error('Certificate status update error:', e);
+    return res.status(500).json({ 
+      error: e.message || 'Failed to update certificate status',
+      suggestion: 'Please try again later'
     });
   }
 });
